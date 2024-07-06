@@ -1,0 +1,490 @@
+// FFT128
+
+#include <stdio.h>
+#include <math.h>
+#include <complex.h>
+#include <stdlib.h>
+#include "platform.h"
+#include "xil_printf.h"
+#include <xtime_l.h>
+#include "xparameters.h"
+#include "xaxidma.h"
+#include "dma_init.h"
+
+#define N 128
+
+int DMA_Init(XAxiDma * AxiDMA, u32 device_ID){
+    XAxiDma_Config *DMA_confptr;
+    int status;
+    // Initialize the DMA
+    DMA_confptr=XAxiDma_LookupConfig(XPAR_AXI_DMA_0_DEVICE_ID);
+    status=XAxiDma_CfgInitialize(AxiDMA,DMA_confptr);
+    // Check whether the DMA is initialized
+    if(status!=XST_SUCCESS)
+    {
+    	printf("\n\rDMA Initialization Failed !");
+    	return XST_FAILURE;
+    }
+    return XST_SUCCESS;
+}
+
+#define N 128 
+
+const int rev128[N] = {
+        0,  64,  32,  96,  16,  80,  48, 112,
+        8,  72,  40, 104,  24,  88,  56, 120,
+        4,  68,  36, 100,  20,  84,  52, 116,
+       12,  76,  44, 108,  28,  92,  60, 124,
+        2,  66,  34,  98,  18,  82,  50, 114,
+       10,  74,  42, 106,  26,  90,  58, 122,
+        6,  70,  38, 102,  22,  86,  54, 118,
+       14,  78,  46, 110,  30,  94,  62, 126,
+        1,  65,  33,  97,  17,  81,  49, 113,
+        9,  73,  41, 105,  25,  89,  57, 121,
+        5,  69,  37, 101,  21,  85,  53, 117,
+       13,  77,  45, 109,  29,  93,  61, 125,
+        3,  67,  35,  99,  19,  83,  51, 115,
+       11,  75,  43, 107,  27,  91,  59, 123,
+        7,  71,  39, 103,  23,  87,  55, 119,
+       15,  79,  47, 111,  31,  95,  63, 127};
+
+const float complex W128[N/2] ={
+ cos(-2*0 * M_PI / 128) + sin(-2*0 * M_PI / 128) * I , cos(-2*1 * M_PI / 128) + sin(-2*1 * M_PI / 128) * I , cos(-2*2 * M_PI / 128) + sin(-2*2 * M_PI / 128) * I , cos(-2*3 * M_PI / 128) + sin(-2*3 * M_PI / 128) * I , cos(-2*4 * M_PI / 128) + sin(-2*4 * M_PI / 128) * I , cos(-2*5 * M_PI / 128) + sin(-2*5 * M_PI / 128) * I , cos(-2*6 * M_PI / 128) + sin(-2*6 * M_PI / 128) * I , cos(-2*7 * M_PI / 128) + sin(-2*7 * M_PI / 128) * I , cos(-2*8 * M_PI / 128) + sin(-2*8 * M_PI / 128) * I , cos(-2*9 * M_PI / 128) + sin(-2*9 * M_PI / 128) * I , cos(-2*10 * M_PI / 128) + sin(-2*10 * M_PI / 128) * I , cos(-2*11 * M_PI / 128) + sin(-2*11 * M_PI / 128) * I , cos(-2*12 * M_PI / 128) + sin(-2*12 * M_PI / 128) * I , cos(-2*13 * M_PI / 128) + sin(-2*13 * M_PI / 128) * I , cos(-2*14 * M_PI / 128) + sin(-2*14 * M_PI / 128) * I , cos(-2*15 * M_PI / 128) + sin(-2*15 * M_PI / 128) * I , cos(-2*16 * M_PI / 128) + sin(-2*16 * M_PI / 128) * I , cos(-2*17 * M_PI / 128) + sin(-2*17 * M_PI / 128) * I , cos(-2*18 * M_PI / 128) + sin(-2*18 * M_PI / 128) * I , cos(-2*19 * M_PI / 128) + sin(-2*19 * M_PI / 128) * I , cos(-2*20 * M_PI / 128) + sin(-2*20 * M_PI / 128) * I , cos(-2*21 * M_PI / 128) + sin(-2*21 * M_PI / 128) * I , cos(-2*22 * M_PI / 128) + sin(-2*22 * M_PI / 128) * I , cos(-2*23 * M_PI / 128) + sin(-2*23 * M_PI / 128) * I , cos(-2*24 * M_PI / 128) + sin(-2*24 * M_PI / 128) * I , cos(-2*25 * M_PI / 128) + sin(-2*25 * M_PI / 128) * I , cos(-2*26 * M_PI / 128) + sin(-2*26 * M_PI / 128) * I , cos(-2*27 * M_PI / 128) + sin(-2*27 * M_PI / 128) * I , cos(-2*28 * M_PI / 128) + sin(-2*28 * M_PI / 128) * I , cos(-2*29 * M_PI / 128) + sin(-2*29 * M_PI / 128) * I , cos(-2*30 * M_PI / 128) + sin(-2*30 * M_PI / 128) * I , cos(-2*31 * M_PI / 128) + sin(-2*31 * M_PI / 128) * I , cos(-2*32 * M_PI / 128) + sin(-2*32 * M_PI / 128) * I , cos(-2*33 * M_PI / 128) + sin(-2*33 * M_PI / 128) * I , cos(-2*34 * M_PI / 128) + sin(-2*34 * M_PI / 128) * I , cos(-2*35 * M_PI / 128) + sin(-2*35 * M_PI / 128) * I , cos(-2*36 * M_PI / 128) + sin(-2*36 * M_PI / 128) * I , cos(-2*37 * M_PI / 128) + sin(-2*37 * M_PI / 128) * I , cos(-2*38 * M_PI / 128) + sin(-2*38 * M_PI / 128) * I , cos(-2*39 * M_PI / 128) + sin(-2*39 * M_PI / 128) * I , cos(-2*40 * M_PI / 128) + sin(-2*40 * M_PI / 128) * I , cos(-2*41 * M_PI / 128) + sin(-2*41 * M_PI / 128) * I , cos(-2*42 * M_PI / 128) + sin(-2*42 * M_PI / 128) * I , cos(-2*43 * M_PI / 128) + sin(-2*43 * M_PI / 128) * I , cos(-2*44 * M_PI / 128) + sin(-2*44 * M_PI / 128) * I , cos(-2*45 * M_PI / 128) + sin(-2*45 * M_PI / 128) * I , cos(-2*46 * M_PI / 128) + sin(-2*46 * M_PI / 128) * I , cos(-2*47 * M_PI / 128) + sin(-2*47 * M_PI / 128) * I , cos(-2*48 * M_PI / 128) + sin(-2*48 * M_PI / 128) * I , cos(-2*49 * M_PI / 128) + sin(-2*49 * M_PI / 128) * I , cos(-2*50 * M_PI / 128) + sin(-2*50 * M_PI / 128) * I , cos(-2*51 * M_PI / 128) + sin(-2*51 * M_PI / 128) * I , cos(-2*52 * M_PI / 128) + sin(-2*52 * M_PI / 128) * I , cos(-2*53 * M_PI / 128) + sin(-2*53 * M_PI / 128) * I , cos(-2*54 * M_PI / 128) + sin(-2*54 * M_PI / 128) * I , cos(-2*55 * M_PI / 128) + sin(-2*55 * M_PI / 128) * I , cos(-2*56 * M_PI / 128) + sin(-2*56 * M_PI / 128) * I , cos(-2*57 * M_PI / 128) + sin(-2*57 * M_PI / 128) * I , cos(-2*58 * M_PI / 128) + sin(-2*58 * M_PI / 128) * I , cos(-2*59 * M_PI / 128) + sin(-2*59 * M_PI / 128) * I , cos(-2*60 * M_PI / 128) + sin(-2*60 * M_PI / 128) * I , cos(-2*61 * M_PI / 128) + sin(-2*61 * M_PI / 128) * I , cos(-2*62 * M_PI / 128) + sin(-2*62 * M_PI / 128) * I , cos(-2*63 * M_PI / 128) + sin(-2*63 * M_PI / 128) * I };
+
+const float complex W64[N/4] = {
+    1.0 - 0.0 * I, cos(-M_PI / 32) + sin(-M_PI / 32) * I,
+    cos(-2 * M_PI / 32) + sin(-2 * M_PI / 32) * I, cos(-3 * M_PI / 32) + sin(-3 * M_PI / 32) * I,
+    cos(-4 * M_PI / 32) + sin(-4 * M_PI / 32) * I, cos(-5 * M_PI / 32) + sin(-5 * M_PI / 32) * I,
+    cos(-6 * M_PI / 32) + sin(-6 * M_PI / 32) * I, cos(-7 * M_PI / 32) + sin(-7 * M_PI / 32) * I,
+    cos(-8 * M_PI / 32) + sin(-8 * M_PI / 32) * I, cos(-9 * M_PI / 32) + sin(-9 * M_PI / 32) * I,
+    cos(-10 * M_PI / 32) + sin(-10 * M_PI / 32) * I, cos(-11 * M_PI / 32) + sin(-11 * M_PI / 32) * I,
+    cos(-12 * M_PI / 32) + sin(-12 * M_PI / 32) * I, cos(-13 * M_PI / 32) + sin(-13 * M_PI / 32) * I,
+    cos(-14 * M_PI / 32) + sin(-14 * M_PI / 32) * I, cos(-15 * M_PI / 32) + sin(-15 * M_PI / 32) * I,
+    cos(-16 * M_PI / 32) + sin(-16 * M_PI / 32) * I, cos(-17 * M_PI / 32) + sin(-17 * M_PI / 32) * I,
+    cos(-18 * M_PI / 32) + sin(-18 * M_PI / 32) * I, cos(-19 * M_PI / 32) + sin(-19 * M_PI / 32) * I,
+    cos(-20 * M_PI / 32) + sin(-20 * M_PI / 32) * I, cos(-21 * M_PI / 32) + sin(-21 * M_PI / 32) * I,
+    cos(-22 * M_PI / 32) + sin(-22 * M_PI / 32) * I, cos(-23 * M_PI / 32) + sin(-23 * M_PI / 32) * I,
+    cos(-24 * M_PI / 32) + sin(-24 * M_PI / 32) * I, cos(-25 * M_PI / 32) + sin(-25 * M_PI / 32) * I,
+    cos(-26 * M_PI / 32) + sin(-26 * M_PI / 32) * I, cos(-27 * M_PI / 32) + sin(-27 * M_PI / 32) * I,
+    cos(-28 * M_PI / 32) + sin(-28 * M_PI / 32) * I, cos(-29 * M_PI / 32) + sin(-29 * M_PI / 32) * I,
+    cos(-30 * M_PI / 32) + sin(-30 * M_PI / 32) * I, cos(-31 * M_PI / 32) + sin(-31 * M_PI / 32) * I
+};
+const float complex W32[N/8] = {
+    1.0 - 0.0 * I, cos(-M_PI / 16) + sin(-M_PI / 16) * I,
+    cos(-M_PI / 8) + sin(-M_PI / 8) * I, cos(-3 * M_PI / 16) + sin(-3 * M_PI / 16) * I,
+    cos(-4 * M_PI / 16) + sin(-4 * M_PI / 16) * I, cos(-5 * M_PI / 16) + sin(-5 * M_PI / 16) * I,
+    cos(-6 * M_PI / 16) + sin(-6 * M_PI / 16) * I, cos(-7 * M_PI / 16) + sin(-7 * M_PI / 16) * I,
+    cos(-8 * M_PI / 16) + sin(-8 * M_PI / 16) * I, cos(-9 * M_PI / 16) + sin(-9 * M_PI / 16) * I,
+    cos(-10 * M_PI / 16) + sin(-10 * M_PI / 16) * I, cos(-11 * M_PI / 16) + sin(-11 * M_PI / 16) * I,
+    cos(-12 * M_PI / 16) + sin(-12 * M_PI / 16) * I, cos(-13 * M_PI / 16) + sin(-13 * M_PI / 16) * I,
+    cos(-14 * M_PI / 16) + sin(-14 * M_PI / 16) * I, cos(-15 * M_PI / 16) + sin(-15 * M_PI / 16) * I
+};
+const float complex W16[N/16] = {
+    1.0 - 0.0 * I, cos(-M_PI / 8) + sin(-M_PI / 8) * I,
+    cos(-M_PI / 4) + sin(-M_PI / 4) * I, cos(-3 * M_PI / 8) + sin(-3 * M_PI / 8) * I,
+    0.0 - 1.0 * I, cos(-5 * M_PI / 8) + sin(-5 * M_PI / 8) * I,
+    cos(-3 * M_PI / 4) + sin(-3 * M_PI / 4) * I, cos(-7 * M_PI / 8) + sin(-7 * M_PI / 8) * I
+};
+const float complex W8[N/32] = {1-0*I, M_SQRT1_2 - M_SQRT1_2 * I, 0-1*I, -M_SQRT1_2 - M_SQRT1_2 * I};
+const float complex W4[N/64] = {1-0*I, 0-1*I};
+
+
+void bitreverse (const float complex dataIn [N], float complex dataOut[N]){
+		for(int i=0; i<N;i++){
+			dataOut[i]=crealf (dataIn[rev128[i]]),cimagf(dataIn[rev128[i]]);
+			}
+	}
+void FFT_stages(const float complex FFT_input[N], float complex FFT_output[N]){
+    float complex temp1[N], temp2[N], temp3[N], temp4[N], temp5[N],temp6[N];
+
+       stage1 :
+       for(int i = 0; i < N; i += 2){
+           temp1[i] = FFT_input[i] + FFT_input[i + 1];
+
+           temp1[i + 1] = FFT_input[i] - FFT_input[i + 1];
+       }
+
+       stage2 :
+       for(int i = 0; i < N ; i+=4){
+           temp2[i] = temp1[i] + W4[0] * temp1[i + 2];
+           temp2[i+1] = temp1[i+1] + W4[1] * temp1[i + 3];
+
+           temp2[i + 2] = temp1[i] - W4[0] * temp1[i + 2];
+           temp2[i + 3] = temp1[i+1] - W4[1] * temp1[i + 3];
+       }
+
+       stage3 :
+       for(int i = 0; i < N; i+=8){
+           temp3[i+0] = temp2[i+0] + W8[0] * temp2[i + 4];
+           temp3[i+1] = temp2[i+1] + W8[1] * temp2[i + 5];
+           temp3[i+2] = temp2[i+2] + W8[2] * temp2[i + 6];
+           temp3[i+3] = temp2[i+3] + W8[3] * temp2[i + 7];
+
+           temp3[i+4] = temp2[i+0] - W8[0] * temp2[i + 4];
+           temp3[i+5] = temp2[i+1] - W8[1] * temp2[i + 5];
+           temp3[i+6] = temp2[i+2] - W8[2] * temp2[i + 6];
+           temp3[i+7] = temp2[i+3] - W8[3] * temp2[i + 7];
+       }
+
+    stage4 :
+    for(int i = 0; i < N; i += 16){
+        temp4[i+0] = temp3[i+0] + W16[0] * temp3[i + 8];
+        temp4[i+1] = temp3[i+1] + W16[1] * temp3[i + 9];
+        temp4[i+2] = temp3[i+2] + W16[2] * temp3[i + 10];
+        temp4[i+3] = temp3[i+3] + W16[3] * temp3[i + 11];
+        temp4[i+4] = temp3[i+4] + W16[4] * temp3[i + 12];
+        temp4[i+5] = temp3[i+5] + W16[5] * temp3[i + 13];
+        temp4[i+6] = temp3[i+6] + W16[6] * temp3[i + 14];
+        temp4[i+7] = temp3[i+7] + W16[7] * temp3[i + 15];
+
+        temp4[i+8]  = temp3[i+0] - W16[0] * temp3[i + 8];
+        temp4[i+9]  = temp3[i+1] - W16[1] * temp3[i + 9];
+        temp4[i+10] = temp3[i+2] - W16[2] * temp3[i + 10];
+        temp4[i+11] = temp3[i+3] - W16[3] * temp3[i + 11];
+        temp4[i+12] = temp3[i+4] - W16[4] * temp3[i + 12];
+        temp4[i+13] = temp3[i+5] - W16[5] * temp3[i + 13];
+        temp4[i+14] = temp3[i+6] - W16[6] * temp3[i + 14];
+        temp4[i+15] = temp3[i+7] - W16[7] * temp3[i + 15];
+    }
+
+    stage5 :
+    for(int i = 0; i < N; i +=32){
+        temp5[i+0] = temp4[i+0] + W32[0] * temp4[i + 16];
+        temp5[i+1] = temp4[i+1] + W32[1] * temp4[i + 17];
+        temp5[i+2] = temp4[i+2] + W32[2] * temp4[i + 18];
+        temp5[i+3] = temp4[i+3] + W32[3] * temp4[i + 19];
+        temp5[i+4] = temp4[i+4] + W32[4] * temp4[i + 20];
+        temp5[i+5] = temp4[i+5] + W32[5] * temp4[i + 21];
+        temp5[i+6] = temp4[i+6] + W32[6] * temp4[i + 22];
+        temp5[i+7] = temp4[i+7] + W32[7] * temp4[i + 23];
+        temp5[i+8]  = temp4[i+8] + W32[8] * temp4[i + 24];
+        temp5[i+9]  = temp4[i+9] + W32[9] * temp4[i + 25];
+        temp5[i+10] = temp4[i+10] + W32[10] * temp4[i + 26];
+        temp5[i+11] = temp4[i+11] + W32[11] * temp4[i + 27];
+        temp5[i+12] = temp4[i+12] + W32[12] * temp4[i + 28];
+        temp5[i+13] = temp4[i+13] + W32[13] * temp4[i + 29];
+        temp5[i+14] = temp4[i+14] + W32[14] * temp4[i + 30];
+        temp5[i+15] = temp4[i+15] + W32[15] * temp4[i + 31];
+
+        temp5[i+16] = temp4[i+0] - W32[0] * temp4[i + 16];
+        temp5[i+17] = temp4[i+1] - W32[1] * temp4[i + 17];
+        temp5[i+18] = temp4[i+2] - W32[2] * temp4[i + 18];
+        temp5[i+19] = temp4[i+3] - W32[3] * temp4[i + 19];
+        temp5[i+20] = temp4[i+4] - W32[4] * temp4[i + 20];
+        temp5[i+21] = temp4[i+5] - W32[5] * temp4[i + 21];
+        temp5[i+22] = temp4[i+6] - W32[6] * temp4[i + 22];
+        temp5[i+23] = temp4[i+7] - W32[7] * temp4[i + 23];
+        temp5[i+24] = temp4[i+8] - W32[8] * temp4[i + 24];
+        temp5[i+25] = temp4[i+9] - W32[9] * temp4[i + 25];
+        temp5[i+26] = temp4[i+10] - W32[10] * temp4[i + 26];
+        temp5[i+27] = temp4[i+11] - W32[11] * temp4[i + 27];
+        temp5[i+28] = temp4[i+12] - W32[12] * temp4[i + 28];
+        temp5[i+29] = temp4[i+13] - W32[13] * temp4[i + 29];
+        temp5[i+30] = temp4[i+14] - W32[14] * temp4[i + 30];
+        temp5[i+31] = temp4[i+15] - W32[15] * temp4[i + 31];
+    }
+
+    stage6 :
+    for(int i = 0; i < N; i += 64){
+        temp6[i+0] = temp5[i+0] + W64[0] * temp5[i + 32];
+        temp6[i+1] = temp5[i+1] + W64[1] * temp5[i + 33];
+        temp6[i+2] = temp5[i+2] + W64[2] * temp5[i + 34];
+        temp6[i+3] = temp5[i+3] + W64[3] * temp5[i + 35];
+        temp6[i+4] = temp5[i+4] + W64[4] * temp5[i + 36];
+        temp6[i+5] = temp5[i+5] + W64[5] * temp5[i + 37];
+        temp6[i+6] = temp5[i+6] + W64[6] * temp5[i + 38];
+        temp6[i+7] = temp5[i+7] + W64[7] * temp5[i + 39];
+        temp6[i+8] = temp5[i+8] + W64[8] * temp5[i + 40];
+        temp6[i+9] = temp5[i+9] + W64[9] * temp5[i + 41];
+        temp6[i+10] = temp5[i+10] + W64[10] * temp5[i + 42];
+        temp6[i+11] = temp5[i+11] + W64[11] * temp5[i + 43];
+        temp6[i+12] = temp5[i+12] + W64[12] * temp5[i + 44];
+        temp6[i+13] = temp5[i+13] + W64[13] * temp5[i + 45];
+        temp6[i+14] = temp5[i+14] + W64[14] * temp5[i + 46];
+        temp6[i+15] = temp5[i+15] + W64[15] * temp5[i + 47];
+        temp6[i+16] = temp5[i+16] + W64[16] * temp5[i + 48];
+        temp6[i+17] = temp5[i+17] + W64[17] * temp5[i + 49];
+        temp6[i+18] = temp5[i+18] + W64[18] * temp5[i + 50];
+        temp6[i+19] = temp5[i+19] + W64[19] * temp5[i + 51];
+        temp6[i+20] = temp5[i+20] + W64[20] * temp5[i + 52];
+        temp6[i+21] = temp5[i+21] + W64[21] * temp5[i + 53];
+        temp6[i+22] = temp5[i+22] + W64[22] * temp5[i + 54];
+        temp6[i+23] = temp5[i+23] + W64[23] * temp5[i + 55];
+        temp6[i+24] = temp5[i+24] + W64[24] * temp5[i + 56];
+        temp6[i+25] = temp5[i+25] + W64[25] * temp5[i + 57];
+        temp6[i+26] = temp5[i+26] + W64[26] * temp5[i + 58];
+        temp6[i+27] = temp5[i+27] + W64[27] * temp5[i + 59];
+        temp6[i+28] = temp5[i+28] + W64[28] * temp5[i + 60];
+        temp6[i+29] = temp5[i+29] + W64[29] * temp5[i + 61];
+        temp6[i+30] = temp5[i+30] + W64[30] * temp5[i + 62];
+        temp6[i+31] = temp5[i+31] + W64[31] * temp5[i + 63];
+
+
+        temp6[i+32] = temp5[i+0] - W64[0] * temp5[i + 32];
+        temp6[i+33] = temp5[i+1] - W64[1] * temp5[i + 33];
+        temp6[i+34] = temp5[i+2] - W64[2] * temp5[i + 34];
+        temp6[i+35] = temp5[i+3] - W64[3] * temp5[i + 35];
+        temp6[i+36] = temp5[i+4] - W64[4] * temp5[i + 36];
+        temp6[i+37] = temp5[i+5] - W64[5] * temp5[i + 37];
+        temp6[i+38] = temp5[i+6] - W64[6] * temp5[i + 38];
+        temp6[i+39] = temp5[i+7] - W64[7] * temp5[i + 39];
+        temp6[i+40] = temp5[i+8] - W64[8] * temp5[i + 40];
+        temp6[i+41] = temp5[i+9] - W64[9] * temp5[i + 41];
+        temp6[i+42] = temp5[i+10] - W64[10] * temp5[i + 42];
+        temp6[i+43] = temp5[i+11] - W64[11] * temp5[i + 43];
+        temp6[i+44] = temp5[i+12] - W64[12] * temp5[i + 44];
+        temp6[i+45] = temp5[i+13] - W64[13] * temp5[i + 45];
+        temp6[i+46] = temp5[i+14] - W64[14] * temp5[i + 46];
+        temp6[i+47] = temp5[i+15] - W64[15] * temp5[i + 47];
+        temp6[i+48] = temp5[i+16] - W64[16] * temp5[i + 48];
+        temp6[i+49] = temp5[i+17] - W64[17] * temp5[i + 49];
+        temp6[i+50] = temp5[i+18] - W64[18] * temp5[i + 50];
+        temp6[i+51] = temp5[i+19] - W64[19] * temp5[i + 51];
+        temp6[i+52] = temp5[i+20] - W64[20] * temp5[i + 52];
+        temp6[i+53] = temp5[i+21] - W64[21] * temp5[i + 53];
+        temp6[i+54] = temp5[i+22] - W64[22] * temp5[i + 54];
+        temp6[i+55] = temp5[i+23] - W64[23] * temp5[i + 55];
+        temp6[i+56] = temp5[i+24] - W64[24] * temp5[i + 56];
+        temp6[i+57] = temp5[i+25] - W64[25] * temp5[i + 57];
+        temp6[i+58] = temp5[i+26] - W64[26] * temp5[i + 58];
+        temp6[i+59] = temp5[i+27] - W64[27] * temp5[i + 59];
+        temp6[i+60] = temp5[i+28] - W64[28] * temp5[i + 60];
+        temp6[i+61] = temp5[i+29] - W64[29] * temp5[i + 61];
+        temp6[i+62] = temp5[i+30] - W64[30] * temp5[i + 62];
+        temp6[i+63] = temp5[i+31] - W64[31] * temp5[i + 63];
+        }
+
+    stage7 :
+    for(int i = 0; i < N; i += 128){
+        FFT_output[i+0] = temp6[i+0] + W128[0] * temp6[i + 64];
+        FFT_output[i+1] = temp6[i+1] + W128[1] * temp6[i + 65];
+        FFT_output[i+2] = temp6[i+2] + W128[2] * temp6[i + 66];
+        FFT_output[i+3] = temp6[i+3] + W128[3] * temp6[i + 67];
+        FFT_output[i+4] = temp6[i+4] + W128[4] * temp6[i + 68];
+        FFT_output[i+5] = temp6[i+5] + W128[5] * temp6[i + 69];
+        FFT_output[i+6] = temp6[i+6] + W128[6] * temp6[i + 70];
+        FFT_output[i+7] = temp6[i+7] + W128[7] * temp6[i + 71];
+        FFT_output[i+8] = temp6[i+8] + W128[8] * temp6[i + 72];
+        FFT_output[i+9] = temp6[i+9] + W128[9] * temp6[i + 73];
+        FFT_output[i+10] = temp6[i+10] + W128[10] * temp6[i + 74];
+        FFT_output[i+11] = temp6[i+11] + W128[11] * temp6[i + 75];
+        FFT_output[i+12] = temp6[i+12] + W128[12] * temp6[i + 76];
+        FFT_output[i+13] = temp6[i+13] + W128[13] * temp6[i + 77];
+        FFT_output[i+14] = temp6[i+14] + W128[14] * temp6[i + 78];
+        FFT_output[i+15] = temp6[i+15] + W128[15] * temp6[i + 79];
+        FFT_output[i+16] = temp6[i+16] + W128[16] * temp6[i + 80];
+        FFT_output[i+17] = temp6[i+17] + W128[17] * temp6[i + 81];
+        FFT_output[i+18] = temp6[i+18] + W128[18] * temp6[i + 82];
+        FFT_output[i+19] = temp6[i+19] + W128[19] * temp6[i + 83];
+        FFT_output[i+20] = temp6[i+20] + W128[20] * temp6[i + 84];
+        FFT_output[i+21] = temp6[i+21] + W128[21] * temp6[i + 85];
+        FFT_output[i+22] = temp6[i+22] + W128[22] * temp6[i + 86];
+        FFT_output[i+23] = temp6[i+23] + W128[23] * temp6[i + 87];
+        FFT_output[i+24] = temp6[i+24] + W128[24] * temp6[i + 88];
+        FFT_output[i+25] = temp6[i+25] + W128[25] * temp6[i + 89];
+        FFT_output[i+26] = temp6[i+26] + W128[26] * temp6[i + 90];
+        FFT_output[i+27] = temp6[i+27] + W128[27] * temp6[i + 91];
+        FFT_output[i+28] = temp6[i+28] + W128[28] * temp6[i + 92];
+        FFT_output[i+29] = temp6[i+29] + W128[29] * temp6[i + 93];
+        FFT_output[i+30] = temp6[i+30] + W128[30] * temp6[i + 94];
+        FFT_output[i+31] = temp6[i+31] + W128[31] * temp6[i + 95];
+        FFT_output[i+32] = temp6[i+32] + W128[32] * temp6[i + 96];
+        FFT_output[i+33] = temp6[i+33] + W128[33] * temp6[i + 97];
+        FFT_output[i+34] = temp6[i+34] + W128[34] * temp6[i + 98];
+        FFT_output[i+35] = temp6[i+35] + W128[35] * temp6[i + 99];
+        FFT_output[i+36] = temp6[i+36] + W128[36] * temp6[i + 100];
+        FFT_output[i+37] = temp6[i+37] + W128[37] * temp6[i + 101];
+        FFT_output[i+38] = temp6[i+38] + W128[38] * temp6[i + 102];
+        FFT_output[i+39] = temp6[i+39] + W128[39] * temp6[i + 103];
+        FFT_output[i+40] = temp6[i+40] + W128[40] * temp6[i + 104];
+        FFT_output[i+41] = temp6[i+41] + W128[41] * temp6[i + 105];
+        FFT_output[i+42] = temp6[i+42] + W128[42] * temp6[i + 106];
+        FFT_output[i+43] = temp6[i+43] + W128[43] * temp6[i + 107];
+        FFT_output[i+44] = temp6[i+44] + W128[44] * temp6[i + 108];
+        FFT_output[i+45] = temp6[i+45] + W128[45] * temp6[i + 109];
+        FFT_output[i+46] = temp6[i+46] + W128[46] * temp6[i + 110];
+        FFT_output[i+47] = temp6[i+47] + W128[47] * temp6[i + 111];
+        FFT_output[i+48] = temp6[i+48] + W128[48] * temp6[i + 112];
+        FFT_output[i+49] = temp6[i+49] + W128[49] * temp6[i + 113];
+        FFT_output[i+50] = temp6[i+50] + W128[50] * temp6[i + 114];
+        FFT_output[i+51] = temp6[i+51] + W128[51] * temp6[i + 115];
+        FFT_output[i+52] = temp6[i+52] + W128[52] * temp6[i + 116];
+        FFT_output[i+53] = temp6[i+53] + W128[53] * temp6[i + 117];
+        FFT_output[i+54] = temp6[i+54] + W128[54] * temp6[i + 118];
+        FFT_output[i+55] = temp6[i+55] + W128[55] * temp6[i + 119];
+        FFT_output[i+56] = temp6[i+56] + W128[56] * temp6[i + 120];
+        FFT_output[i+57] = temp6[i+57] + W128[57] * temp6[i + 121];
+        FFT_output[i+58] = temp6[i+58] + W128[58] * temp6[i + 122];
+        FFT_output[i+59] = temp6[i+59] + W128[59] * temp6[i + 123];
+        FFT_output[i+60] = temp6[i+60] + W128[60] * temp6[i + 124];
+        FFT_output[i+61] = temp6[i+61] + W128[61] * temp6[i + 125];
+        FFT_output[i+62] = temp6[i+62] + W128[62] * temp6[i + 126];
+        FFT_output[i+63] = temp6[i+63] + W128[63] * temp6[i + 127];
+
+
+        FFT_output[i+64] = temp6[i+0] - W128[0] * temp6[i + 64];
+        FFT_output[i+65] = temp6[i+1] - W128[1] * temp6[i + 65];
+        FFT_output[i+66] = temp6[i+2] - W128[2] * temp6[i + 66];
+        FFT_output[i+67] = temp6[i+3] - W128[3] * temp6[i + 67];
+        FFT_output[i+68] = temp6[i+4] - W128[4] * temp6[i + 68];
+        FFT_output[i+69] = temp6[i+5] - W128[5] * temp6[i + 69];
+        FFT_output[i+70] = temp6[i+6] - W128[6] * temp6[i + 70];
+        FFT_output[i+71] = temp6[i+7] - W128[7] * temp6[i + 71];
+        FFT_output[i+72] = temp6[i+8] - W128[8] * temp6[i + 72];
+        FFT_output[i+73] = temp6[i+9] - W128[9] * temp6[i + 73];
+        FFT_output[i+74] = temp6[i+10] - W128[10] * temp6[i + 74];
+        FFT_output[i+75] = temp6[i+11] - W128[11] * temp6[i + 75];
+        FFT_output[i+76] = temp6[i+12] - W128[12] * temp6[i + 76];
+        FFT_output[i+77] = temp6[i+13] - W128[13] * temp6[i + 77];
+        FFT_output[i+78] = temp6[i+14] - W128[14] * temp6[i + 78];
+        FFT_output[i+79] = temp6[i+15] - W128[15] * temp6[i + 79];
+        FFT_output[i+80] = temp6[i+16] - W128[16] * temp6[i + 80];
+        FFT_output[i+81] = temp6[i+17] - W128[17] * temp6[i + 81];
+        FFT_output[i+82] = temp6[i+18] - W128[18] * temp6[i + 82];
+        FFT_output[i+83] = temp6[i+19] - W128[19] * temp6[i + 83];
+        FFT_output[i+84] = temp6[i+20] - W128[20] * temp6[i + 84];
+        FFT_output[i+85] = temp6[i+21] - W128[21] * temp6[i + 85];
+        FFT_output[i+86] = temp6[i+22] - W128[22] * temp6[i + 86];
+        FFT_output[i+87] = temp6[i+23] - W128[23] * temp6[i + 87];
+        FFT_output[i+88] = temp6[i+24] - W128[24] * temp6[i + 88];
+        FFT_output[i+89] = temp6[i+25] - W128[25] * temp6[i + 89];
+        FFT_output[i+90] = temp6[i+26] - W128[26] * temp6[i + 90];
+        FFT_output[i+91] = temp6[i+27] - W128[27] * temp6[i + 91];
+        FFT_output[i+92] = temp6[i+28] - W128[28] * temp6[i + 92];
+        FFT_output[i+93] = temp6[i+29] - W128[29] * temp6[i + 93];
+        FFT_output[i+94] = temp6[i+30] - W128[30] * temp6[i + 94];
+        FFT_output[i+95] = temp6[i+31] - W128[31] * temp6[i + 95];
+        FFT_output[i+96] = temp6[i+32] - W128[32] * temp6[i + 96];
+        FFT_output[i+97] = temp6[i+33] - W128[33] * temp6[i + 97];
+        FFT_output[i+98] = temp6[i+34] - W128[34] * temp6[i + 98];
+        FFT_output[i+99] = temp6[i+35] - W128[35] * temp6[i + 99];
+        FFT_output[i+100] = temp6[i+36] - W128[36] * temp6[i + 100];
+        FFT_output[i+101] = temp6[i+37] - W128[37] * temp6[i + 101];
+        FFT_output[i+102] = temp6[i+38] - W128[38] * temp6[i + 102];
+        FFT_output[i+103] = temp6[i+39] - W128[39] * temp6[i + 103];
+        FFT_output[i+104] = temp6[i+40] - W128[40] * temp6[i + 104];
+        FFT_output[i+105] = temp6[i+41] - W128[41] * temp6[i + 105];
+        FFT_output[i+106] = temp6[i+42] - W128[42] * temp6[i + 106];
+        FFT_output[i+107] = temp6[i+43] - W128[43] * temp6[i + 107];
+        FFT_output[i+108] = temp6[i+44] - W128[44] * temp6[i + 108];
+        FFT_output[i+109] = temp6[i+45] - W128[45] * temp6[i + 109];
+        FFT_output[i+110] = temp6[i+46] - W128[46] * temp6[i + 110];
+        FFT_output[i+111] = temp6[i+47] - W128[47] * temp6[i + 111];
+        FFT_output[i+112] = temp6[i+48] - W128[48] * temp6[i + 112];
+        FFT_output[i+113] = temp6[i+49] - W128[49] * temp6[i + 113];
+        FFT_output[i+114] = temp6[i+50] - W128[50] * temp6[i + 114];
+        FFT_output[i+115] = temp6[i+51] - W128[51] * temp6[i + 115];
+        FFT_output[i+116] = temp6[i+52] - W128[52] * temp6[i + 116];
+        FFT_output[i+117] = temp6[i+53] - W128[53] * temp6[i + 117];
+        FFT_output[i+118] = temp6[i+54] - W128[54] * temp6[i + 118];
+        FFT_output[i+119] = temp6[i+55] - W128[55] * temp6[i + 119];
+        FFT_output[i+120] = temp6[i+56] - W128[56] * temp6[i + 120];
+        FFT_output[i+121] = temp6[i+57] - W128[57] * temp6[i + 121];
+        FFT_output[i+122] = temp6[i+58] - W128[58] * temp6[i + 122];
+        FFT_output[i+123] = temp6[i+59] - W128[59] * temp6[i + 123];
+        FFT_output[i+124] = temp6[i+60] - W128[60] * temp6[i + 124];
+        FFT_output[i+125] = temp6[i+61] - W128[61] * temp6[i + 125];
+        FFT_output[i+126] = temp6[i+62] - W128[62] * temp6[i + 126];
+        FFT_output[i+127] = temp6[i+63] - W128[63] * temp6[i + 127];
+    }
+	
+}
+
+
+int main(){
+init_platform();
+// Initializing Timer instances for PS and PL
+XTime PL_start_time, PL_end_time;
+XTime PS_start_time, PS_end_time;
+
+    const float complex FFT_input[N] = {
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+        40 , 77 , 62 , 85 ,
+        50 , 28 , 81 , 19 ,
+        36 , 66 , 70 , 42 ,
+		54 , 26 , 58 , 61 ,
+    };
+float complex FFT_output_sw[N], FFT_output_hw[N];
+float complex FFT_rev_sw[N];
+///// Software 64-point FFT
+XTime_SetTime(0); // Setting Timer to value
+XTime_GetTime(&PS_start_time); // Get Start Time
+bitreverse (FFT_input, FFT_rev_sw);
+FFT_stages (FFT_rev_sw, FFT_output_sw);
+XTime_GetTime(&PS_end_time); // Get End Time
+
+
+
+/////// Hardware 8-point FFT
+int status;
+XAxiDma AxiDMA;
+status=DMA_Init(&AxiDMA, XPAR_AXI_DMA_0_DEVICE_ID);
+if(status)
+	return 1;// DMA Init Failed
+
+XTime_SetTime(0); // Setting Timer to value
+XTime_GetTime(&PL_start_time); // Get Start Time
+
+// Simple DMA Transfers
+status=XAxiDma_SimpleTransfer (&AxiDMA, (UINTPTR) FFT_output_hw, (sizeof(float complex) *N), XAXIDMA_DEVICE_TO_DMA);
+status=XAxiDma_SimpleTransfer (&AxiDMA, (UINTPTR) FFT_input, (sizeof(float complex) *N), XAXIDMA_DMA_TO_DEVICE);
+// POLLING-Check whether the DMA-to-Device and Device-to-DMA transfers are complete
+while(XAxiDma_Busy (&AxiDMA, XAXIDMA_DMA_TO_DEVICE));
+	//printf("\n\rDMA-to-Device Transfer Done!");
+while(XAxiDma_Busy (&AxiDMA, XAXIDMA_DEVICE_TO_DMA));
+	//printf("\n\rDevice-to-DMA Transfer Done!");
+
+XTime_GetTime(&PL_end_time); // Get End Time
+
+
+/////////// Verifying Hardware result with Software
+for (int i=0;i<N;i++){
+	printf("\n \rPS Output- %f+%fI, PL Output- %f+%fI", crealf (FFT_output_sw[i]), cimagf(FFT_output_sw[i]), crealf (FFT_output_hw[i]), cimagf (FFT_output_hw[i]));
+	float diff1=abs (crealf (FFT_output_sw[i])-crealf (FFT_output_hw[i]));
+	float diff2=abs (cimagf(FFT_output_sw[i])-cimagf(FFT_output_hw[i]));
+//	 if (diff1>=0.01 && diff2>=0.01){
+//	 	printf("\n\rData Mismatch found at index %d !",i);
+//	 	break;
+//	 }
+//	 else
+//	 	printf("DMA Transfer Successful!");
+}
+/////////// Software & Hardware Exceution Time calculation printf("\n \r Execution Time Comparison --------");
+printf("\n\r------ Execution Time Comparison ------");
+float time=0;
+time= (float)1.0*(PS_end_time-PS_start_time)/(COUNTS_PER_SECOND/1000000); // Software Exceution Time calculation
+printf("\n\r Execution Time for PS in Micro-Seconds : %f",time);
+
+time=0;
+time= (float)1.0*(PL_end_time-PL_start_time)/(COUNTS_PER_SECOND/1000000);  // Hardware Exceution Time calculation
+printf("\n\r Execution Time for PL in Micro-Seconds : %f",time);
+cleanup_platform();
+return 0;
+}
